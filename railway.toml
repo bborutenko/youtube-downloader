@@ -1,0 +1,3 @@
+[build]
+engine = "Dockerfile"
+dockerfilePath = "docker/Dockerfile"
