@@ -24,13 +24,13 @@ router = APIRouter(prefix="/youtube", tags=["Youtube"])
 logger = logging.getLogger(__name__)
 
 
-@router.get("/video", summary="Скачать и вернуть видео")
+@router.get("/video", summary="Download and return a video")
 async def download_video_by_url(
     background_tasks: BackgroundTasks,
-    url: HttpUrl = Query(..., description="Ссылка на YouTube-видео"),
+    url: HttpUrl = Query(..., description="YouTube video URL"),
     cookies_name: str = Query(
         None,
-        description="Название сохранённого cookies-файла, сохраненного в POST /cookies",
+        description="Stored cookies filename returned by POST /cookies",
     ),
 ):
     """Stream the requested YouTube video as an MP4 file.
@@ -59,7 +59,7 @@ async def download_video_by_url(
     except FileNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Cookies-файл по указанному URL не найден",
+            detail="Cookies file not found for the provided URL",
         ) from exc
 
     cookies_path = str(cookies_file)
@@ -88,13 +88,13 @@ async def download_video_by_url(
 
 @router.post(
     "/cookies",
-    summary="Загрузить cookies-файл",
+    summary="Upload a cookies file",
     status_code=status.HTTP_201_CREATED,
 )
 async def upload_cookies_file(
     request: Request,
-    file_name: str = Form(..., description="Название cookies-файла"),
-    file: UploadFile = File(..., description="Cookies в формате Netscape"),
+    file_name: str = Form(..., description="Cookies filename to store"),
+    file: UploadFile = File(..., description="Cookies in Netscape format"),
 ):
     """Persist an uploaded cookies file and return its download URL.
 
@@ -109,14 +109,14 @@ async def upload_cookies_file(
     if not sanitized_name:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Название файла не может быть пустым",
+            detail="Cookies filename cannot be empty",
         )
 
     content = await file.read()
     if not content:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Файл cookies пуст",
+            detail="Cookies file is empty",
         )
 
     destination_dir = Path(settings.YOUTUBE_COOKIES_DIR).expanduser()
@@ -134,7 +134,7 @@ async def upload_cookies_file(
         logger.exception("Failed to save cookies file %s", destination_path)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Не удалось сохранить cookies",
+            detail="Failed to store cookies",
         )
 
     logger.info("Cookies file stored at %s", saved_path)
