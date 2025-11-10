@@ -28,17 +28,29 @@ logger = logging.getLogger(__name__)
 async def download_video_by_url(
     background_tasks: BackgroundTasks,
     url: HttpUrl = Query(..., description="Ссылка на YouTube-видео"),
-    cookies_url: str = Query(
+    cookies_name: str = Query(
         None,
-        description="URL сохранённого cookies-файла, полученный из POST /cookies",
+        description="Название сохранённого cookies-файла, сохраненного в POST /cookies",
     ),
 ):
+    """Stream the requested YouTube video as an MP4 file.
+
+    Returns:
+        FileResponse: Serves the merged MP4 with HTTP 200 on success.
+
+    Raises:
+        HTTPException: 400 if the provided cookies reference is malformed.
+        HTTPException: 404 if the referenced cookies file does not exist.
+        HTTPException: Propagates other failures (e.g., yt-dlp errors) as 500.
+    """
     logger.info("Received download request for %s", url)
     temp_dir = Path(tempfile.mkdtemp(prefix="yt-video-"))
 
     cookies_dir = Path(settings.YOUTUBE_COOKIES_DIR).expanduser()
     try:
-        cookies_file = CookieService.resolve_cookies_reference(cookies_url, cookies_dir)
+        cookies_file = CookieService.resolve_cookies_reference(
+            cookies_name, cookies_dir
+        )
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -84,6 +96,15 @@ async def upload_cookies_file(
     file_name: str = Form(..., description="Название cookies-файла"),
     file: UploadFile = File(..., description="Cookies в формате Netscape"),
 ):
+    """Persist an uploaded cookies file and return its download URL.
+
+    Returns:
+        dict: JSON payload with the stored cookies URL (HTTP 201).
+
+    Raises:
+        HTTPException: 400 if the filename/content is invalid or the file fails validation.
+        HTTPException: 500 if the file cannot be saved to disk.
+    """
     sanitized_name = Path(file_name).name
     if not sanitized_name:
         raise HTTPException(
@@ -118,6 +139,5 @@ async def upload_cookies_file(
 
     logger.info("Cookies file stored at %s", saved_path)
 
-    base_url = str(request.base_url).rstrip("/")
     cookie_path = request.url.path.rstrip("/") + f"/{sanitized_name}"
-    return {"url": f"{base_url}{cookie_path}"}
+    return {"name": f"{cookie_path}"}
